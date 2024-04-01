@@ -1,0 +1,72 @@
+Index: services/core/java/com/android/server/wallpaper/WallpaperManagerService.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/services/core/java/com/android/server/wallpaper/WallpaperManagerService.java b/services/core/java/com/android/server/wallpaper/WallpaperManagerService.java
+--- a/services/core/java/com/android/server/wallpaper/WallpaperManagerService.java	(revision 324a1c31a7913611d525a0ffb86382ade5b83b22)
++++ b/services/core/java/com/android/server/wallpaper/WallpaperManagerService.java	(revision 94cb5ad9a7d6ac088804b1fbfa21907590ee7d9d)
+@@ -1116,6 +1116,7 @@
+         }
+     }
+ 
++    WallpaperConnection.DisplayConnector mPendingRemoveDisplayConnector= null;
+     class WallpaperConnection extends IWallpaperConnection.Stub
+             implements ServiceConnection {
+ 
+@@ -1179,15 +1180,17 @@
+ 
+             void disconnectLocked() {
+                 if (DEBUG) Slog.v(TAG, "Removing window token: " + mToken);
+-                mWindowManagerInternal.removeWindowToken(mToken, false/* removeWindows */,
+-                        mDisplayId);
+-                try {
++//                mWindowManagerInternal.removeWindowToken(mToken, false/* removeWindows */,
++//                        mDisplayId);
++                /*try {
+                     if (mEngine != null) {
+                         mEngine.destroy();
+                     }
+                 } catch (RemoteException e) {
+                 }
+-                mEngine = null;
++                mEngine = null;*/
++                mPendingRemoveDisplayConnector = this;
++
+             }
+         }
+ 
+@@ -1544,6 +1547,21 @@
+ 
+         @Override
+         public void engineShown(IWallpaperEngine engine) {
++            if (mPendingRemoveDisplayConnector != null) {
++                mWindowManagerInternal.removeWindowToken(mPendingRemoveDisplayConnector.mToken, false/* removeWindows */,
++                mPendingRemoveDisplayConnector.mDisplayId);
++
++                try {
++                    if (mPendingRemoveDisplayConnector.mEngine != null) {
++                        mPendingRemoveDisplayConnector.mEngine.destroy();
++                    }
++                } catch (RemoteException e) {
++                    mPendingRemoveDisplayConnector.mEngine = null;
++                }
++
++                mPendingRemoveDisplayConnector = null;
++                android.util.Log.i("WallpaperBlankScreen"," engineShown mPendingRemoveDisplayConnector = " + mPendingRemoveDisplayConnector);
++            }
+             synchronized (mLock) {
+                 if (mReply != null) {
+                     final long ident = Binder.clearCallingIdentity();
+@@ -3198,9 +3216,9 @@
+             try {
+                 // It can be null if user switching happens before service connection.
+                 if (wallpaper.connection.mService != null) {
+-                    wallpaper.connection.mService.detach();
++//                    wallpaper.connection.mService.detach();
+                 }
+-            } catch (RemoteException e) {
++            } catch (Exception e) {
+                 Slog.w(TAG, "Failed detaching wallpaper service ", e);
+             }
+             mContext.unbindService(wallpaper.connection);
